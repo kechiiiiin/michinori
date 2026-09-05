@@ -1,0 +1,52 @@
+name: michinori
+
+options:
+  bundleIdPrefix: jp.kechiiiiin
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  minimumXcodeGenVersion: "2.40.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  Michinori:
+    type: application
+    platform: iOS
+    sources:
+      - path: Michinori
+        excludes:
+          - "Info.plist"
+    settings:
+      base:
+        PRODUCT_NAME: michinori
+        PRODUCT_BUNDLE_IDENTIFIER: jp.kechiiiiin.michinori
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # iPhone のみ（iPad は非スコープ）
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Michinori/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 7Z4R4TQPZL
+        SWIFT_EMIT_LOC_STRINGS: YES
+        ENABLE_PREVIEWS: YES
+        # entitlement は要らない（位置情報は Info.plist の用途説明だけで足りる）。
+        # health-sync にあった HealthKit 関連（entitlements・bridging header）は持ち込んでいない。
+
+# xcodegen が暗黙に作るスキームは xcuserdata（＝毎回生成し直される場所）にしか出ないため、
+# 共有スキームを明示的に作る。これが無いと生成直後に `-scheme Michinori` が使えないことがある。
+schemes:
+  Michinori:
+    build:
+      targets:
+        Michinori: all
+    run:
+      config: Debug
+    archive:
+      config: Release

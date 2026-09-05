@@ -1,0 +1,23 @@
+# Xcode
+build/
+build-check/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# xcodegen が project.yml から生成する（生成物はコミットしない）
+*.xcodeproj
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# macOS
+.DS_Store
