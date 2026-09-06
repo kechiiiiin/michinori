@@ -75,3 +75,8 @@ make devices  # 繋がっている端末の一覧
 
 標高プロファイル、GPX 読み込み、経路の自動最適化、iCloud 同期、共有・公開、住所や駅名の検索窓、
 Android・iPad 対応。
+
+## アイコン
+
+原本は `Design/icon.svg`（深緑の背景に、生成りの破線の道と両端の点）。角丸は描かず iOS に任せる。
+`Michinori/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` が生成物で、SVG を直したら `make icon` で作り直す（`brew install librsvg`）。

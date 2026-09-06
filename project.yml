@@ -36,6 +36,8 @@ targets:
         DEVELOPMENT_TEAM: 7Z4R4TQPZL
         SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_PREVIEWS: YES
+        # アイコンは Assets.xcassets/AppIcon（1024 単一サイズ）。原本は Design/icon.svg、再生成は `make icon`
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # entitlement は要らない（位置情報は Info.plist の用途説明だけで足りる）。
         # health-sync にあった HealthKit 関連（entitlements・bridging header）は持ち込んでいない。
 

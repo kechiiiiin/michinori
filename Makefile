@@ -10,6 +10,7 @@
 #   make resign    7日ごとの再署名。iPhone を Mac に繋いでから叩く
 #   make check     実機なしでコンパイルだけ確かめる（署名しない・繋がなくてよい）
 #   make launch    実機で起動してコンソールを見る（クラッシュ調査）
+#   make icon      Design/icon.svg からアプリアイコン PNG を再生成する（rsvg-convert が要る）
 #   make devices   繋がっている端末の一覧（DEVICE の UUID を確かめたいとき）
 #
 # ⚠️ 注意
@@ -26,12 +27,13 @@ PROJECT = michinori.xcodeproj
 SCHEME  = Michinori
 APP     = build/Build/Products/Debug-iphoneos/michinori.app
 
-.PHONY: help resign generate build install launch check devices clean
+.PHONY: icon help resign generate build install launch check devices clean
 
 help:
 	@echo "resign     再署名（generate → build → install）。7日ごと・iPhone を繋いでから"
 	@echo "check      実機なしでコンパイルだけ確認（署名なし）"
 	@echo "launch     実機で起動してコンソールを見る"
+	@echo "icon            Design/icon.svg からアイコン PNG を再生成"
 	@echo "devices    繋がっている端末の一覧"
 	@echo "clean      build/ build-check/ と生成した .xcodeproj を消す"
 
@@ -64,6 +66,10 @@ check: generate
 	  -derivedDataPath build-check CODE_SIGNING_ALLOWED=NO build
 	@rm -rf build-check
 	@echo "✅ コンパイルは通る"
+
+icon:
+	rsvg-convert -w 1024 -h 1024 Design/icon.svg -o Michinori/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+	@echo "✅ アイコン PNG を再生成した"
 
 devices:
 	xcrun devicectl list devices

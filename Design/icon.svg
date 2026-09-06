@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- michinori のアプリアイコン原本。角丸は描かない（iOS が付ける）。PNG は `make icon` で再生成する。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a7d5c"/>
+      <stop offset="1" stop-color="#1f5540"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景: 深緑のグラデーション -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- 地図らしさ: ごく淡い等高線ふうの曲線 -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="14">
+    <path d="M -40 300 C 200 220, 320 420, 560 340 S 900 200, 1080 300"/>
+    <path d="M -40 760 C 180 680, 380 860, 620 760 S 880 640, 1080 740"/>
+  </g>
+  <!-- 道のり: 生成りの破線が緩やかに曲がる -->
+  <path d="M 236 772 C 236 560, 470 620, 512 512 S 788 420, 788 252"
+        fill="none" stroke="#f4ecd8" stroke-width="56" stroke-linecap="round"
+        stroke-dasharray="70 52"/>
+  <!-- 両端の点: 出発と到着 -->
+  <g stroke="#f4ecd8" stroke-width="26">
+    <circle cx="236" cy="772" r="74" fill="#d9704a"/>
+    <circle cx="788" cy="252" r="74" fill="#d9704a"/>
+  </g>
+</svg>
