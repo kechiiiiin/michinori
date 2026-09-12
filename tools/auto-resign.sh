@@ -1,0 +1,97 @@
+#!/bin/bash
+#
+# michinori — 無線での自動再署名（launchd から呼ばれる）
+#
+# 無料 Personal Team のプロファイルは7日で失効し、失効するとアプリが起動できなくなる
+# （保存したルートは無事。再署名して開けば元通り）。iPhone は自宅 Wi-Fi 越しに devicectl から
+# 見えている（transportType: localNetwork）ので、ケーブルを挿さずに `make resign` が通る。
+# それを一日置きにまわして手作業をゼロにするのがこのスクリプト。
+#
+# ⚠️ ここが肝 — 単に `make resign` を叩くだけでは期限が伸びないことがある。
+#   Xcode は手元にキャッシュしたプロビジョニングプロファイルが**まだ失効していなければ
+#   それを使い回す**ので、再署名しても埋め込まれるのは古いプロファイルのまま。
+#   2026-09-12 にこのアプリで実際に踏んだ（残り1時間半のプロファイルが更新されなかった）。
+#   → 期限が近いときは**キャッシュを消してから**ビルドし、Xcode に取り直させる。
+#   → さらにビルド後、埋め込まれた期限が本当に伸びたかを検算して、伸びていなければ失敗扱いにする。
+#
+# health-sync にも同じ仕組みが入っている（あちらは 4:00・こちらは 4:20 でビルドが重ならない）。
+#
+# ログ: ~/Library/Logs/michinori-resign.log
+
+set -uo pipefail
+
+# launchd の PATH は最小限。homebrew（xcodegen）と Xcode のツールを明示的に足す
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+REPO="$HOME/work/michinori"
+BUNDLE="jp.kechiiiiin.michinori"
+DEVICE="8EAC2623-47F0-58AC-9DEF-8DD9AE4D6E55"
+APP="$REPO/build/Build/Products/Debug-iphoneos/michinori.app"
+PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+LOG="$HOME/Library/Logs/michinori-resign.log"
+
+# キャッシュを捨てて取り直す閾値（日）。7日のうち残りがこれを切ったら更新しにいく
+RENEW_WITHIN_DAYS=3
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG"; }
+notify() { /usr/bin/osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1; }
+
+# プロファイルの失効日を epoch 秒で返す（読めなければ空）
+expiry_epoch() {
+  local d
+  d=$(security cms -D -i "$1" 2>/dev/null | plutil -extract ExpirationDate raw -o - - 2>/dev/null) || return 0
+  [ -n "$d" ] || return 0
+  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$d" +%s 2>/dev/null
+}
+
+log "--- 自動再署名を開始"
+
+# 1. 端末が Wi-Fi 越しに見えているか（外出中・電源断ならここで諦める）
+#    ⚠️ 直前に別のインストールが走った直後などは一瞬 available から外れる。
+#       3回まで様子を見てから諦める（2026-09-12 に実際に空振りした）
+seen=0
+for attempt in 1 2 3; do
+  if xcrun devicectl list devices 2>/dev/null | grep -q "$DEVICE.*available"; then seen=1; break; fi
+  [ "$attempt" -lt 3 ] && sleep 30
+done
+if [ "$seen" -eq 0 ]; then
+  log "端末が見えない（外出中か電源断）。今回は見送る"
+  exit 0   # 失敗ではないので通知しない。次の実行機会に任せる
+fi
+
+cd "$REPO" || { log "リポジトリが無い: $REPO"; notify "michinori 再署名に失敗" "リポジトリが見つかりません"; exit 1; }
+
+# 2. 期限が近いキャッシュ済みプロファイルを消す（Xcode に取り直させるため）
+now=$(date +%s)
+threshold=$(( now + RENEW_WITHIN_DAYS * 86400 ))
+shopt -s nullglob
+for f in "$PROFILE_DIR"/*.mobileprovision; do
+  name=$(security cms -D -i "$f" 2>/dev/null | plutil -extract Name raw -o - - 2>/dev/null)
+  case "$name" in *"$BUNDLE"*) ;; *) continue ;; esac
+  exp=$(expiry_epoch "$f")
+  if [ -n "$exp" ] && [ "$exp" -lt "$threshold" ]; then
+    log "期限が近いプロファイルを削除して取り直す（失効: $(date -r "$exp" '+%Y-%m-%d %H:%M')）"
+    rm -f "$f"
+  fi
+done
+
+# 3. 再署名（generate → build → install）
+if ! make resign >>"$LOG" 2>&1; then
+  log "❌ make resign が失敗（詳細は直前のログ）"
+  notify "michinori 再署名に失敗" "ログ: ~/Library/Logs/michinori-resign.log"
+  exit 1
+fi
+
+# 4. 検算 — 埋め込まれた期限が本当に伸びたか。伸びていなければ静かな失敗なので鳴らす
+exp=$(expiry_epoch "$APP/embedded.mobileprovision")
+if [ -z "$exp" ]; then
+  log "⚠️ 成功したが、埋め込みプロファイルの期限を読めなかった"
+  exit 0
+fi
+left_days=$(( (exp - now) / 86400 ))
+log "✅ 成功。失効: $(date -r "$exp" '+%Y-%m-%d %H:%M')（残り ${left_days}日）"
+if [ "$left_days" -lt 2 ]; then
+  notify "michinori の署名が更新されていない" "残り ${left_days}日。プロファイルが取り直せていません"
+  exit 1
+fi
+exit 0
