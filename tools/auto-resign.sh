@@ -31,7 +31,7 @@ PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 LOG="$HOME/Library/Logs/michinori-resign.log"
 
 # キャッシュを捨てて取り直す閾値（日）。7日のうち残りがこれを切ったら更新しにいく
-RENEW_WITHIN_DAYS=3
+RENEW_WITHIN_DAYS="${RENEW_WITHIN_DAYS:-3}"   # 手で今すぐ取り直したいときは RENEW_WITHIN_DAYS=8 で叩く
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG"; }
 notify() { /usr/bin/osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1; }
@@ -51,7 +51,14 @@ log "--- 自動再署名を開始"
 #       3回まで様子を見てから諦める（2026-09-12 に実際に空振りした）
 seen=0
 for attempt in 1 2 3; do
-  if xcrun devicectl list devices 2>/dev/null | grep -q "$DEVICE.*available"; then seen=1; break; fi
+  # ⚠️ Xcode 27 から表の Identifier 欄が CoreDevice ID ではなく UDID になり、表への grep が常に外れて
+  #    「端末が見えない」で黙って見送り続けた（2026-09-15）。JSON の identifier で判定する
+  j=$(mktemp); xcrun devicectl list devices --json-output "$j" >/dev/null 2>&1
+  if /usr/bin/python3 -c 'import json,sys
+d=[x for x in json.load(open(sys.argv[1]))["result"]["devices"] if x.get("identifier")==sys.argv[2]]
+c=d[0].get("connectionProperties",{}) if d else {}
+sys.exit(0 if d and c.get("pairingState")=="paired" and c.get("transportType") else 1)' "$j" "$DEVICE" 2>/dev/null; then rm -f "$j"; seen=1; break; fi
+  rm -f "$j"
   [ "$attempt" -lt 3 ] && sleep 30
 done
 if [ "$seen" -eq 0 ]; then
