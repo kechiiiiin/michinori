@@ -34,7 +34,16 @@ LOG="$HOME/Library/Logs/michinori-resign.log"
 RENEW_WITHIN_DAYS="${RENEW_WITHIN_DAYS:-3}"   # 手で今すぐ取り直したいときは RENEW_WITHIN_DAYS=8 で叩く
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG"; }
-notify() { /usr/bin/osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1; }
+# 失敗は Mac の通知に加えて Discord（ヘスティアの連絡チャンネル）にも送る。朝4時の Mac 通知は見落とすため（2026-09-23）
+# URL は ~/.config/ios-resign/discord-webhook（600・リポジトリには入れない）。launchd は iCloud の vault を読めないのでここに置く
+WEBHOOK_FILE="$HOME/.config/ios-resign/discord-webhook"
+notify() {
+  /usr/bin/osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1
+  [ -f "$WEBHOOK_FILE" ] || return 0
+  local payload
+  payload=$(T="$1" B="$2" /usr/bin/python3 -c 'import json,os; print(json.dumps({"content": "**"+os.environ["T"]+"**\n"+os.environ["B"], "username": "ヘスティア"}))')
+  curl -s -o /dev/null -m 15 -H 'Content-Type: application/json' -d "$payload" "$(cat "$WEBHOOK_FILE")" || log "Discord への通知に失敗"
+}
 
 # プロファイルの失効日を epoch 秒で返す（読めなければ空）
 expiry_epoch() {
@@ -83,11 +92,18 @@ for f in "$PROFILE_DIR"/*.mobileprovision; do
 done
 
 # 3. 再署名（generate → build → install）
-if ! make resign >>"$LOG" 2>&1; then
+OUT=$(mktemp)
+if ! make resign >"$OUT" 2>&1; then
+  cat "$OUT" >>"$LOG"
   log "❌ make resign が失敗（詳細は直前のログ）"
-  notify "michinori 再署名に失敗" "ログ: ~/Library/Logs/michinori-resign.log"
+  # 原因の1行目を本文に載せる（「No Accounts」なら Xcode → Settings → Accounts でサインインし直す）
+  err=$(grep -m1 'error:' "$OUT" | sed -E 's/.*error: //' | cut -c1-200)
+  rm -f "$OUT"
+  notify "michinori 再署名に失敗" "${err:-原因はログを参照}
+ログ: ~/Library/Logs/michinori-resign.log"
   exit 1
 fi
+cat "$OUT" >>"$LOG"; rm -f "$OUT"
 
 # 4. 検算 — 埋め込まれた期限が本当に伸びたか。伸びていなければ静かな失敗なので鳴らす
 exp=$(expiry_epoch "$APP/embedded.mobileprovision")
