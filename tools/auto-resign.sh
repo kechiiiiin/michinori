@@ -34,7 +34,7 @@ LOG="$HOME/Library/Logs/michinori-resign.log"
 RENEW_WITHIN_DAYS="${RENEW_WITHIN_DAYS:-3}"   # 手で今すぐ取り直したいときは RENEW_WITHIN_DAYS=8 で叩く
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$LOG"; }
-# 失敗は Mac の通知に加えて Discord（ヘスティアの連絡チャンネル）にも送る。朝4時の Mac 通知は見落とすため（2026-09-23）
+# 失敗は Mac の通知に加えて Discord（再署名の失敗通知用チャンネル）にも送る。朝4時の Mac 通知は見落とすため（2026-09-23）
 # URL は ~/.config/ios-resign/discord-webhook（600・リポジトリには入れない）。launchd は iCloud の vault を読めないのでここに置く
 WEBHOOK_FILE="$HOME/.config/ios-resign/discord-webhook"
 notify() {
